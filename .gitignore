@@ -1,0 +1,21 @@
+# 가상환경 및 캐시
+myenv/
+venv/
+__pycache__/
+*.py[cod]
+
+# [중요] 노트북 전화 서버 코드 제외
+local_relay.py
+relay/
+*.exe
+adb/
+scrcpy/
+
+# 모델 및 대용량 파일
+backend/lib/model/
+*.zip
+*.pcm
+*.mp3
+
+# 개인 설정
+.env

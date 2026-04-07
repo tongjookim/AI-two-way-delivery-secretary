@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI 비서 단비</title>
+    <style>
+        :root {
+            --primary: #2ecc71;
+            --primary-dark: #27ae60;
+            --bg-light: #f8f9fa;
+            --text-dark: #333;
+            --nav-height: 70px;
+        }
+
+        /* [기본 레이아웃 및 프레임 이탈 방지] */
+        * { 
+            box-sizing: border-box; 
+            -webkit-tap-highlight-color: transparent; 
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, sans-serif;
+            margin: 0; 
+            padding: 0;
+            background-color: #f0f2f5;
+            color: var(--text-dark);
+            overflow: hidden; /* 전체 바디 스크롤 방지 */
+        }
+
+        /* [메인 프레임 설정] */
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            position: relative;
+            box-shadow: 0 0 30px rgba(0,0,0,0.1);
+        }
+
+        header {
+            flex-shrink: 0;
+            padding: 18px;
+            background: white;
+            border-bottom: 1px solid #f1f3f5;
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-align: center;
+            z-index: 100;
+        }
+
+        /* [각 페이지 공통 설정] */
+        .page {
+            flex: 1;
+            display: none;
+            position: relative; /* 자식인 absolute 요소의 기준점이 됨 */
+            overflow: hidden;
+            background: white;
+            width: 100%;
+        }
+        .page.active { 
+            display: flex; 
+            flex-direction: column; 
+        }
+
+        /* [1. 채팅 페이지 특화 레이아웃] */
+        #page-chat { 
+            height: 100%; 
+        }
+        
+        #chat-window {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding-bottom: 150px; /* 하단 입력창이 가리지 않도록 공간 확보 */
+            scroll-behavior: smooth;
+            width: 100%;
+        }
+
+        /* 하단 입력 영역 (채팅 페이지에만 종속됨) */
+        .chat-bottom-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: white;
+            padding: 10px 0 15px 0;
+            border-top: 1px solid #f1f3f5;
+            z-index: 50;
+        }
+
+        .quick-replies {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 0 15px 12px 15px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .quick-replies::-webkit-scrollbar { display: none; }
+
+        .chip {
+            flex-shrink: 0;
+            background: white;
+            border: 1.5px solid #e9ecef;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #495057;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+            transition: all 0.2s;
+        }
+        .chip:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: #fafffb;
+        }
+
+        .chat-input-area { 
+            display: flex; 
+            gap: 10px; 
+            padding: 0 15px; 
+            width: 100%;
+        }
+        .chat-input-area input {
+            flex: 1; 
+            padding: 12px 20px; 
+            border: none; 
+            border-radius: 25px;
+            background: #f1f3f5; 
+            font-size: 0.95rem; 
+            outline: none;
+            width: 100%;
+        }
+        .chat-input-area button {
+            background: var(--primary); 
+            color: white; 
+            border: none;
+            width: 42px; 
+            height: 42px; 
+            border-radius: 50%;
+            cursor: pointer; 
+            box-shadow: 0 4px 10px rgba(46, 204, 113, 0.2);
+            flex-shrink: 0;
+            font-weight: bold;
+        }
+
+        /* 말풍선 디자인 (줄바꿈 및 프레임 이탈 방지 적용) */
+        .message { 
+            max-width: 85%; 
+            padding: 12px 16px; 
+            border-radius: 18px; 
+            font-size: 0.95rem; 
+            line-height: 1.5; 
+            word-break: break-all; 
+            overflow-wrap: break-word;
+        }
+        .message.ai { 
+            align-self: flex-start; 
+            background: #f0f0f0; 
+            border-bottom-left-radius: 2px; 
+        }
+        .message.user { 
+            align-self: flex-end; 
+            background: var(--primary); 
+            color: white; 
+            border-bottom-right-radius: 2px; 
+        }
+
+        /* 맛집 및 결제 카드 디자인 */
+        .recommendation-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .order-card { 
+            background: white; 
+            border: 1px solid #eee; 
+            border-radius: 15px; 
+            padding: 18px; 
+            width: 100%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .order-card:hover {
+            background: #f9fdfa;
+        }
+
+        /* [2, 3. 주문내역 및 설정 페이지] */
+        .content-padding { 
+            flex: 1; 
+            overflow-y: auto; 
+            padding: 20px; 
+            width: 100%;
+        }
+        .settings-item { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 18px 0; 
+            border-bottom: 1px solid #f8f9fa; 
+        }
+
+        /* [하단 네비게이션] */
+        nav {
+            flex-shrink: 0;
+            height: var(--nav-height);
+            background: white;
+            border-top: 1px solid #eee;
+            display: flex;
+            z-index: 100;
+            width: 100%;
+        }
+        .nav-item {
+            flex: 1; 
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            justify-content: center;
+            font-size: 0.75rem; 
+            color: #bbb; 
+            cursor: pointer;
+        }
+        .nav-item.active { color: var(--primary); }
+        .nav-item i { font-size: 1.4rem; margin-bottom: 4px; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <header id="page-title">AI 비서 단비</header>
+
+    <section id="page-chat" class="page active">
+        <div id="chat-window">
+            <div class="message ai">안녕하세요! 무엇을 드시고 싶으신지 말씀해 주시면 카카오맵에서 맛집을 찾아 추천해 드릴게요!</div>
+        </div>
+        
+        <div class="chat-bottom-container">
+            <div class="quick-replies">
+                <div class="chip" onclick="quickSend('😋 오늘 뭐 먹지?')">😋 오늘 뭐 먹지?</div>
+                <div class="chip" onclick="quickSend('🍖 족발 맛집 추천해줘')">🍖 족발 맛집</div>
+                <div class="chip" onclick="quickSend('🆓 배달비 무료인 곳?')">🆓 배달비 무료</div>
+                <div class="chip" onclick="quickSend('🔥 매운게 땡겨')">🔥 매운 음식</div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="user-input" placeholder="메뉴를 입력하세요" onkeypress="if(event.key==='Enter') sendChat()">
+                <button onclick="sendChat()">↑</button>
+            </div>
+        </div>
+    </section>
+
+    <section id="page-history" class="page">
+        <div class="content-padding">
+            <div class="order-card" style="cursor: default;">
+                <div style="color:var(--primary); font-size:0.8rem; font-weight:bold;">배달 완료</div>
+                <div style="font-weight:bold; margin:8px 0; font-size:1.1rem;">왕만족 족발 본점</div>
+                <div style="font-size:0.95rem; color:#666;">족발 2인분 · 25,000원</div>
+                <div style="font-size:0.8rem; color:#ccc; margin-top:10px;">2026.04.05 19:30</div>
+            </div>
+        </div>
+    </section>
+
+    <section id="page-settings" class="page">
+        <div class="content-padding">
+            <h3 style="margin-bottom:20px;">내 정보</h3>
+            <div class="settings-item">
+                <label style="color:#888;">이름</label>
+                <span style="font-weight:600;">홍길동</span>
+            </div>
+            <div class="settings-item">
+                <label style="color:#888;">연락처</label>
+                <span style="font-weight:600;">010-1234-5678</span>
+            </div>
+            <h3 style="margin:30px 0 20px 0;">결제 정보</h3>
+            <div class="settings-item">
+                <label style="color:#888;">주거래 은행</label>
+                <span style="font-weight:600;">신한은행</span>
+            </div>
+            <div class="settings-item">
+                <label style="color:#888;">환불 계좌</label>
+                <span style="font-weight:600;">110-123-456789</span>
+            </div>
+        </div>
+    </section>
+
+    <nav>
+        <div class="nav-item active" onclick="switchPage('chat', 'AI 비서 단비', this)">
+            <i>💬</i><span>채팅</span>
+        </div>
+        <div class="nav-item" onclick="switchPage('history', '주문내역', this)">
+            <i>📋</i><span>주문내역</span>
+        </div>
+        <div class="nav-item" onclick="switchPage('settings', '설정', this)">
+            <i>⚙️</i><span>설정</span>
+        </div>
+    </nav>
+</div>
+
+<script>
+    // 백엔드 API 주소 (실제 서버 IP로 변경하여 사용)
+    const API_URL = 'https://danbi.swnest.net/api/';
+    let currentMenu = '';
+
+    // [추가됨] 사용자의 위치 정보를 담을 변수
+    let userLat = null; 
+    let userLng = null;
+
+    // [추가됨] 앱 실행 시(window.onload) 위치 정보 권한 요청
+    window.onload = () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    userLat = position.coords.latitude;
+                    userLng = position.coords.longitude;
+                    console.log(`📍 내 위치 확보: 위도 ${userLat}, 경도 ${userLng}`);
+                    // 위치를 찾으면 첫 안내 메시지 변경
+                    const firstMsg = document.querySelector('#chat-window .message.ai');
+                    if(firstMsg) {
+                        firstMsg.innerText = "안녕하세요! 고객님의 위치를 확인했어요. 근처의 맛집을 추천해 드릴게요!";
+                    }
+                },
+                (error) => {
+                    console.warn("위치 권한 거부 또는 실패:", error);
+                    // 권한 거부 시 기본 메시지 유지 또는 안내 추가 가능
+                }
+            );
+        } else {
+            console.warn("이 브라우저에서는 Geolocation이 지원되지 않습니다.");
+        }
+    };
+
+    // 1. 통합 스크롤 함수 (렌더링 후 부드럽게 최하단으로 내림)
+    function scrollToBottom() {
+        const win = document.getElementById('chat-window');
+        setTimeout(() => { 
+            win.scrollTo({ 
+                top: win.scrollHeight, 
+                behavior: 'smooth' 
+            }); 
+        }, 30);
+    }
+
+    // 2. 페이지 전환 함수
+    function switchPage(pageId, title, navEl) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById('page-' + pageId).classList.add('active');
+        
+        document.getElementById('page-title').innerText = title;
+        
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        navEl.classList.add('active');
+    }
+
+    // 3. 추천 칩 클릭 시 즉시 전송
+    function quickSend(text) {
+        document.getElementById('user-input').value = text;
+        sendChat();
+    }
+
+    // 4. 메시지 전송 및 카카오 API 기반 맛집 검색 요청
+    async function sendChat() {
+        const input = document.getElementById('user-input');
+        const text = input.value.trim();
+        if(!text) return;
+
+        // 사용자 메시지 출력
+        addMsg(text, 'user');
+        input.value = '';
+        showLoading();
+
+        try {
+            // [수정됨] 백엔드에 맛집 검색 요청 시 위경도 추가 전송
+            const payload = { 
+                "user_input": text 
+            };
+            if (userLat !== null && userLng !== null) {
+                payload["lat"] = userLat;
+                payload["lng"] = userLng;
+            }
+
+            const res = await fetch(`${API_URL}/search-restaurants`, {
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            
+            currentMenu = data.menu; // 추후 주문을 위해 메뉴 기억
+            hideLoading();
+            
+            // 검색 성공 안내 메시지 및 카드 리스트 출력
+            const locationText = (userLat && userLng) ? "근처에서 " : "";
+            addMsg(`네, ${locationText}평점이 좋은 ${data.menu} 맛집들을 찾았어요! 어디로 전화할까요?`, 'ai');
+            addRestaurantList(data.recommendations);
+
+        } catch (error) { 
+            console.error(error);
+            hideLoading(); 
+            addMsg("서버와 통신하는 중 오류가 발생했어요. 다시 말씀해 주시겠어요?", 'ai'); 
+        }
+    }
+
+    // 5. 식당 선택 시 최종 주문 진행 (AI 전화 발신)
+    async function finalizeOrder(id, name) {
+        // 화면 정돈을 위해 기존 추천 리스트 제거
+        document.querySelector('.recommendation-list')?.remove();
+        
+        addMsg(`${name}으로 주문할게요.`, 'user');
+        showLoading();
+
+        try {
+            // 백엔드에 주문 요청 (AI 전화 발신 및 계좌 확보 로직 수행)
+            const res = await fetch(`${API_URL}/place-order`, {
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ "restaurant_id": id, "menu": currentMenu })
+            });
+            const data = await res.json();
+            
+            hideLoading();
+
+            // 🎙️ [추가됨] 백엔드에서 대본(script)이 오면 스피커로 재생!
+            if (data.payment_info && data.payment_info.script) {
+                const speech = new SpeechSynthesisUtterance(data.payment_info.script);
+                speech.lang = 'ko-KR';
+                speech.rate = 1.0;  // 말하기 속도
+                window.speechSynthesis.speak(speech);
+            }
+
+            addMsg("AI가 사장님과 통화를 마쳤습니다. 아래 계좌로 입금해 주시면 배달이 시작됩니다!", 'ai');
+            
+            // 결제 카드 렌더링
+            addPaymentCard(data.payment_info);
+
+        } catch (error) { 
+            console.error(error);
+            hideLoading(); 
+            addMsg("주문 전화를 거는 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.", 'ai'); 
+        }
+    }
+
+    // 6. UI 헬퍼 함수: 말풍선 추가
+    function addMsg(text, sender) {
+        const win = document.getElementById('chat-window');
+        const div = document.createElement('div');
+        div.className = `message ${sender}`;
+        div.innerText = text;
+        win.appendChild(div);
+        scrollToBottom();
+    }
+
+    // 7. UI 헬퍼 함수: 카카오맵 검색 결과(식당 리스트) 출력
+    function addRestaurantList(list) {
+        const win = document.getElementById('chat-window');
+        const container = document.createElement('div');
+        container.className = 'recommendation-list';
+        
+        list.forEach(res => {
+            const card = document.createElement('div');
+            card.className = 'order-card';
+            // 카카오맵 데이터 바인딩 (거리 정보 추가 표시)
+            const distanceHtml = res.distance ? `<span style="margin-left:8px; color:#3498db; font-size:0.8rem; font-weight:bold;">📍 ${res.distance}</span>` : "";
+
+            card.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong style="font-size:1.05rem;">${res.name}</strong>
+                    <span style="color:#f1c40f;">⭐ ${res.rating || '4.5'}</span>
+                </div>
+                <div style="font-size:0.85rem; color:#888; margin-top:6px; word-break:keep-all;">
+                    ${res.address} ${distanceHtml}
+                </div>
+                <div style="font-size:0.8rem; color:#aaa; margin-top:4px;">
+                    📞 ${res.phone || '전화번호 없음'}
+                </div>
+            `;
+            // 카드 클릭 시 해당 식당으로 주문 진행
+            card.onclick = () => finalizeOrder(res.id, res.name);
+            container.appendChild(card);
+        });
+        
+        win.appendChild(container);
+        scrollToBottom();
+    }
+
+    // 8. UI 헬퍼 함수: 입금 정보 카드 출력
+    function addPaymentCard(paymentInfo) {
+        const chatWindow = document.getElementById('chat-window'); // 채팅창 ID (환경에 맞게 수정)
+        
+        // 카드 컨테이너 생성
+        const cardDiv = document.createElement('div');
+        cardDiv.className = 'message ai payment-card-wrapper'; 
+        
+        // undefined 해결: paymentInfo.bank_account 를 직접 출력합니다.
+        cardDiv.innerHTML = `
+            <div style="border-left: 4px solid #2ecc71; background-color: #f8f9fa; border-radius: 8px; padding: 16px; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <div style="font-size: 12px; color: #7f8c8d; margin-bottom: 4px;">송금 정보</div>
+                
+                <div style="font-size: 16px; font-weight: bold; color: #2c3e50; margin-bottom: 8px;">
+                    ${paymentInfo.bank_account || '카카오뱅크 3333-12-3456789'}
+                </div>
+                
+                <div style="font-size: 14px; color: #7f8c8d; margin-bottom: 16px;">
+                    예금주: 단비맛집 | <span style="color: #e74c3c;">주문 금액 시연용</span>
+                </div>
+                
+                <button onclick="alert('입금이 확인되었습니다! 곧 맛있는 음식이 배달됩니다. 🛵')" 
+                        style="width: 100%; background-color: #2ecc71; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                    입금 완료
+                </button>
+            </div>
+        `;
+        
+        chatWindow.appendChild(cardDiv);
+        chatWindow.scrollTop = chatWindow.scrollHeight; // 스크롤 맨 아래로 이동
+    }
+
+    // 9. UI 헬퍼 함수: 로딩 애니메이션
+    function showLoading() {
+        const win = document.getElementById('chat-window');
+        const loader = document.createElement('div');
+        loader.id = 'loader'; 
+        loader.className = 'message ai'; 
+        loader.innerText = '단비가 열심히 확인 중이에요...';
+        win.appendChild(loader); 
+        scrollToBottom();
+    }
+
+    function hideLoading() { 
+        document.getElementById('loader')?.remove(); 
+    }
+</script>
+
+</body>
+</html>
